@@ -1,5 +1,4 @@
 click == 7.1.2
 pillow == 9.3.0
 tk-tools == 0.13.0
-wireviz >= 0.4.1
-pytest
+wireviz == 0.2

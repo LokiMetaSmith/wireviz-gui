@@ -10,7 +10,6 @@ from wireviz.Harness import Harness
 from wireviz.wv_helper import awg_equiv_table
 
 from wireviz_gui._base import BaseFrame
-from wireviz_gui.dialog_logic import CustomColorSchemesDialogLogic
 from wireviz_gui.images import logo
 
 
@@ -145,49 +144,24 @@ class AddConnectorFrame(BaseFrame):
         if self._on_save_callback is not None:
             self._on_save_callback()
 
+    def _load(self):
+        connector = self._harness.connectors[self._connector_name]
+        self._name_entry.insert(0, f'{connector.name}')
+        self._name_entry.config(state='disabled')
 
-class CustomColorSchemesDialog(BaseFrame):
-    def __init__(self, parent,
-                 color_schemes: dict = None,
-                 on_save_callback: callable = None,
-                 loglevel=logging.INFO):
-        super().__init__(parent, loglevel=loglevel)
+        if connector.manufacturer is not None:
+            self._manuf_entry.insert(0, connector.manufacturer)
+        if connector.manufacturer_part_number is not None:
+            self._mpn_entry.insert(0, connector.manufacturer_part_number)
+        if connector.internal_part_number is not None:
+            self._ipm_entry.insert(0, connector.internal_part_number)
+        if connector.type is not None:
+            self._type_entry.insert(0, connector.type)
+        if connector.subtype is not None:
+            self._subtype_entry.insert(0, connector.subtype)
 
-        self._on_save_callback = on_save_callback
-
-        r = 0
-        tk.Label(self, text='Custom Color Schemes', **self._heading)\
-            .grid(row=r, column=0, columnspan=2, sticky='ew')
-
-        r += 1
-        tk.Label(self, text='Color Schemes (YAML):', **self._normal)\
-            .grid(row=r, column=0, columnspan=2, sticky='w')
-
-        r += 1
-        self._text = tk.Text(self, height=10)
-        self._text.grid(row=r, column=0, columnspan=2, sticky='ew')
-
-        r += 1
-        tk.Button(self, text='Save Color Schemes',
-                  command=self._save,
-                  **self._normal)\
-            .grid(row=r, column=0, columnspan=2, sticky='ew')
-
-        if color_schemes:
-            self._load(color_schemes)
-
-    def _load(self, color_schemes):
-        import yaml
-        self._text.insert('1.0', yaml.dump(color_schemes, default_flow_style=False, sort_keys=False))
-
-    def _save(self):
-        logic = CustomColorSchemesDialogLogic(self._text.get('1.0', 'end'))
-        try:
-            color_schemes = logic.get_color_schemes()
-            if self._on_save_callback is not None:
-                self._on_save_callback(color_schemes)
-        except ValueError as e:
-            showerror('Invalid Input', f'{e}')
+        # load PinsFrame
+        self._pins_frame.load(connector.pinlabels, connector.pinout)
 
     def _save(self):
         name = self._name_entry.get().strip()

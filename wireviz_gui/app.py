@@ -15,9 +15,36 @@ from yaml.parser import ParserError
 from yaml.scanner import ScannerError
 
 from wireviz_gui._base import BaseFrame, ToplevelBase
-from wireviz_gui.dialogs import AboutFrame, AddCableFrame, AddConnectionFrame, AddConnectorFrame, CustomColorSchemesDialog
+from wireviz_gui.dialogs import AboutFrame, AddCableFrame, AddConnectionFrame, AddConnectorFrame
 from wireviz_gui.images import *
 from wireviz_gui.menus import Menu
+
+
+def _generate_homebox_csv_content(bom):
+    import csv
+    from io import StringIO
+
+    output = StringIO()
+    writer = csv.writer(output)
+
+    header = ['name', 'label', 'description', 'location', 'quantity', 'price', 'asset_code', 'serial_number', 'notes']
+    writer.writerow(header)
+
+    for item in bom:
+        row_values = [
+            item.get('mpn', ''),  # name
+            item.get('manufacturer', ''),  # label
+            item.get('description', ''),  # description
+            '',  # location
+            item.get('qty', ''),  # quantity
+            '',  # price
+            item.get('pn', ''),  # asset_code
+            '',  # serial_number
+            f"Designators: {', '.join(item.get('designators', []))}, Supplier: {item.get('supplier', '')}, SPN: {item.get('spn', '')}" # notes
+        ]
+        writer.writerow(row_values)
+
+    return output.getvalue()
 
 
 class Application(tk.Tk):
@@ -41,40 +68,29 @@ class Application(tk.Tk):
         self._io_frame.grid(row=r, column=0, sticky='ew')
 
         self._menu = Menu(self, export_all=self._io_frame.export_all,
-                          refresh=self._io_frame.parse_text,
-                          color_schemes=self._color_schemes,
-                          about=self._about)
+                          export_homebox=self.export_homebox_csv,
+                          refresh=self._io_frame.parse_text, about=self._about)
         self.config(menu=self._menu)
 
         self.mainloop()
 
-    def _color_schemes(self):
-        import yaml
-        top = ToplevelBase(self)
-        top.title('Custom Color Schemes')
+    def export_homebox_csv(self):
+        self._io_frame.parse_text()
 
-        current_text = self._io_frame._text_entry_frame.get()
-        try:
-            data = yaml.safe_load(current_text) or {}
-            color_schemes = data.get('color_schemes', {})
-        except yaml.YAMLError:
-            color_schemes = {}
+        # if the harness object is empty, do not export
+        if not self._io_frame._harness.connectors and not self._io_frame._harness.cables:
+            showerror('Export Error', 'Harness is empty or contains invalid YAML, cannot export BOM.')
+            return
 
-        def on_save(color_schemes):
-            current_text = self._io_frame._text_entry_frame.get()
-            try:
-                data = yaml.safe_load(current_text) or {}
-                data['color_schemes'] = color_schemes
-                self._io_frame._text_entry_frame.clear()
-                self._io_frame._text_entry_frame.append(yaml.dump(data, default_flow_style=False, sort_keys=False))
-            except yaml.YAMLError as e:
-                showerror('YAML Error', f'Error processing existing YAML: {e}')
-                return
+        file_name = asksaveasfilename(defaultextension=".csv", filetypes=[("CSV files", "*.csv")])
+        if not file_name:
+            return
 
-            top.destroy()
-            self._io_frame.parse_text()
+        bom = self._io_frame._harness.bom()
+        csv_content = _generate_homebox_csv_content(bom)
 
-        CustomColorSchemesDialog(top, color_schemes=color_schemes, on_save_callback=on_save).grid()
+        with open(file_name, 'w', newline='') as f:
+            f.write(csv_content)
 
     def _about(self):
         top = ToplevelBase(self)
