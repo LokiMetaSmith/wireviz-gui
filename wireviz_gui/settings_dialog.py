@@ -5,6 +5,7 @@ import tkinter.ttk as ttk
 import yaml
 
 from wireviz_gui._base import BaseFrame
+from wireviz_gui.settings_dialog_logic import SettingsDialogLogic
 
 
 class SettingsDialog(BaseFrame):
@@ -97,25 +98,18 @@ class SettingsDialog(BaseFrame):
             .grid(row=r, column=0, columnspan=2, sticky='ew')
 
     def _save(self):
-        options = {}
-        if self._bgcolor_entry.get():
-            options['bgcolor'] = self._bgcolor_entry.get()
-        if self._bgcolor_node_entry.get():
-            options['bgcolor_node'] = self._bgcolor_node_entry.get()
-        if self._bgcolor_connector_entry.get():
-            options['bgcolor_connector'] = self._bgcolor_connector_entry.get()
-        if self._bgcolor_cable_entry.get():
-            options['bgcolor_cable'] = self._bgcolor_cable_entry.get()
-        if self._bgcolor_bundle_entry.get():
-            options['bgcolor_bundle'] = self._bgcolor_bundle_entry.get()
-        if self._color_mode_cb.get():
-            options['color_mode'] = self._color_mode_cb.get()
-        if self._fontname_entry.get():
-            options['fontname'] = self._fontname_entry.get()
-        if self._mini_bom_mode_var.get():
-            options['mini_bom_mode'] = self._mini_bom_mode_var.get()
-        if self._template_separator_entry.get():
-            options['template_separator'] = self._template_separator_entry.get()
+        logic = SettingsDialogLogic(
+            bgcolor=self._bgcolor_entry.get(),
+            bgcolor_node=self._bgcolor_node_entry.get(),
+            bgcolor_connector=self._bgcolor_connector_entry.get(),
+            bgcolor_cable=self._bgcolor_cable_entry.get(),
+            bgcolor_bundle=self._bgcolor_bundle_entry.get(),
+            color_mode=self._color_mode_cb.get(),
+            fontname=self._fontname_entry.get(),
+            mini_bom_mode=self._mini_bom_mode_var.get(),
+            template_separator=self._template_separator_entry.get()
+        )
+        options = logic.get_options()
 
         if self._on_save_callback is not None:
             self._on_save_callback(options)

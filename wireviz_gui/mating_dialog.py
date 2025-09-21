@@ -7,6 +7,7 @@ import webbrowser
 from wireviz.Harness import Harness
 
 from wireviz_gui._base import BaseFrame
+from wireviz_gui.mating_dialog_logic import AddMateDialogLogic
 
 
 class AddMateDialog(BaseFrame):
@@ -71,23 +72,16 @@ class AddMateDialog(BaseFrame):
                 .pack(side='left', expand=True)
 
     def _save(self):
-        from_connector = self._from_connector_cb.get()
-        to_connector = self._to_connector_cb.get()
-        arrow = self._arrow_direction_var.get()
+        logic = AddMateDialogLogic(
+            from_connector=self._from_connector_cb.get(),
+            to_connector=self._to_connector_cb.get(),
+            arrow_direction=self._arrow_direction_var.get()
+        )
+        yaml_snippet = logic.get_yaml_snippet()
 
-        if not from_connector or not to_connector:
+        if yaml_snippet is None:
             showerror('Error', 'Please select both "From" and "To" connectors.')
             return
-
-        # This is a simplified approach. A more robust solution would be to
-        # parse the existing YAML, add the new connection, and then dump the
-        # updated YAML back to the text entry. For now, we just append the
-        # new connection.
-        yaml_snippet = f"""
-- - {from_connector}
-  - {arrow}
-  - {to_connector}
-"""
 
         if self._on_save_callback is not None:
             self._on_save_callback(yaml_snippet)
