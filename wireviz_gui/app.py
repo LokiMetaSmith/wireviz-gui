@@ -15,6 +15,7 @@ from yaml import YAMLError
 from wireviz_gui._base import BaseFrame, ToplevelBase
 from wireviz_gui.dialogs import AboutFrame, AddCableFrame, AddConnectionFrame, AddConnectorFrame
 from wireviz_gui.mating_dialog import AddMateDialog
+from wireviz_gui.settings_dialog import SettingsDialog
 from wireviz_gui.images import *
 from wireviz_gui.menus import Menu
 
@@ -39,11 +40,34 @@ class Application(tk.Tk):
         self._io_frame = InputOutputFrame(self)
         self._io_frame.grid(row=r, column=0, sticky='ew')
 
-        self._menu = Menu(self, export_all=self._io_frame.export_all,
-                          refresh=self._io_frame.parse_text, about=self._about)
+        self._menu = Menu(self,
+                          export_all=self._io_frame.export_all,
+                          refresh=self._io_frame.parse_text,
+                          settings=self._settings,
+                          about=self._about)
         self.config(menu=self._menu)
 
         self.mainloop()
+
+    def _settings(self):
+        top = ToplevelBase(self)
+        top.title('Settings')
+
+        def on_save(options):
+            current_text = self._io_frame._text_entry_frame.get()
+            try:
+                data = yaml.safe_load(current_text) or {}
+                data['options'] = options
+                self._io_frame._text_entry_frame.clear()
+                self._io_frame._text_entry_frame.append(yaml.dump(data, default_flow_style=False, sort_keys=False))
+            except yaml.YAMLError as e:
+                showerror('YAML Error', f'Error processing existing YAML: {e}')
+                return
+
+            top.destroy()
+            self._io_frame.parse_text()
+
+        SettingsDialog(top, on_save_callback=on_save).grid()
 
     def _about(self):
         top = ToplevelBase(self)
