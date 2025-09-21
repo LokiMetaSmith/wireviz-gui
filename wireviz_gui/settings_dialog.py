@@ -5,7 +5,7 @@ import tkinter.ttk as ttk
 import yaml
 
 from wireviz_gui._base import BaseFrame
-from wireviz_gui.settings_dialog_logic import SettingsDialogLogic
+from wireviz_gui.dialog_logic import SettingsDialogLogic
 
 
 class SettingsDialog(BaseFrame):

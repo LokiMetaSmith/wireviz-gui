@@ -9,7 +9,11 @@ from wireviz.Harness import Harness
 #from wireviz.wv_colors import color_full
 from wireviz.wv_helper import awg_equiv_table
 
+import tkinter.ttk as ttk
+import yaml
+
 from wireviz_gui._base import BaseFrame
+from wireviz_gui.dialog_logic import AddConnectorDialogLogic, AddCableDialogLogic, AddConnectionDialogLogic, SettingsDialogLogic, MetadataDialogLogic, AddMateDialogLogic
 from wireviz_gui.images import logo
 
 
@@ -144,6 +148,113 @@ class AddConnectorFrame(BaseFrame):
         if self._on_save_callback is not None:
             self._on_save_callback()
 
+
+class SettingsDialog(BaseFrame):
+    def __init__(self, parent,
+                 on_save_callback: callable = None,
+                 loglevel=logging.INFO):
+        super().__init__(parent, loglevel=loglevel)
+
+        self._on_save_callback = on_save_callback
+
+        r = 0
+        tk.Label(self, text='Settings', **self._heading)\
+            .grid(row=r, column=0, columnspan=2, sticky='ew')
+
+        r += 1
+        tk.Label(self, text='Colors', **self._bold)\
+            .grid(row=r, column=0, columnspan=2, sticky='w')
+
+        r += 1
+        tk.Label(self, text='Background Color:', **self._normal)\
+            .grid(row=r, column=0, sticky='e')
+        self._bgcolor_entry = tk.Entry(self)
+        self._bgcolor_entry.grid(row=r, column=1, sticky='ew')
+
+        r += 1
+        tk.Label(self, text='Node Color:', **self._normal)\
+            .grid(row=r, column=0, sticky='e')
+        self._bgcolor_node_entry = tk.Entry(self)
+        self._bgcolor_node_entry.grid(row=r, column=1, sticky='ew')
+
+        r += 1
+        tk.Label(self, text='Connector Color:', **self._normal)\
+            .grid(row=r, column=0, sticky='e')
+        self._bgcolor_connector_entry = tk.Entry(self)
+        self._bgcolor_connector_entry.grid(row=r, column=1, sticky='ew')
+
+        r += 1
+        tk.Label(self, text='Cable Color:', **self._normal)\
+            .grid(row=r, column=0, sticky='e')
+        self._bgcolor_cable_entry = tk.Entry(self)
+        self._bgcolor_cable_entry.grid(row=r, column=1, sticky='ew')
+
+        r += 1
+        tk.Label(self, text='Bundle Color:', **self._normal)\
+            .grid(row=r, column=0, sticky='e')
+        self._bgcolor_bundle_entry = tk.Entry(self)
+        self._bgcolor_bundle_entry.grid(row=r, column=1, sticky='ew')
+
+        r += 1
+        tk.Label(self, text='Color Mode:', **self._normal)\
+            .grid(row=r, column=0, sticky='e')
+        self._color_mode_cb = ttk.Combobox(self, values=['full', 'FULL', 'hex', 'HEX', 'short', 'SHORT', 'ger', 'GER'])
+        self._color_mode_cb.grid(row=r, column=1, sticky='ew')
+
+        r += 1
+        tk.Label(self, text='Fonts', **self._bold)\
+            .grid(row=r, column=0, columnspan=2, sticky='w')
+
+        r += 1
+        tk.Label(self, text='Font Name:', **self._normal)\
+            .grid(row=r, column=0, sticky='e')
+        self._fontname_entry = tk.Entry(self)
+        self._fontname_entry.grid(row=r, column=1, sticky='ew')
+
+        r += 1
+        tk.Label(self, text='BOM', **self._bold)\
+            .grid(row=r, column=0, columnspan=2, sticky='w')
+
+        r += 1
+        tk.Label(self, text='Mini BOM Mode:', **self._normal)\
+            .grid(row=r, column=0, sticky='e')
+        self._mini_bom_mode_var = tk.BooleanVar()
+        self._mini_bom_mode_cb = ttk.Checkbutton(self, variable=self._mini_bom_mode_var)
+        self._mini_bom_mode_cb.grid(row=r, column=1, sticky='ew')
+
+        r += 1
+        tk.Label(self, text='Autogeneration', **self._bold)\
+            .grid(row=r, column=0, columnspan=2, sticky='w')
+
+        r += 1
+        tk.Label(self, text='Template Separator:', **self._normal)\
+            .grid(row=r, column=0, sticky='e')
+        self._template_separator_entry = tk.Entry(self)
+        self._template_separator_entry.grid(row=r, column=1, sticky='ew')
+
+        r += 1
+        tk.Button(self, text='Save Settings',
+                  command=self._save,
+                  **self._normal)\
+            .grid(row=r, column=0, columnspan=2, sticky='ew')
+
+    def _save(self):
+        logic = SettingsDialogLogic(
+            bgcolor=self._bgcolor_entry.get(),
+            bgcolor_node=self._bgcolor_node_entry.get(),
+            bgcolor_connector=self._bgcolor_connector_entry.get(),
+            bgcolor_cable=self._bgcolor_cable_entry.get(),
+            bgcolor_bundle=self._bgcolor_bundle_entry.get(),
+            color_mode=self._color_mode_cb.get(),
+            fontname=self._fontname_entry.get(),
+            mini_bom_mode=self._mini_bom_mode_var.get(),
+            template_separator=self._template_separator_entry.get()
+        )
+        options = logic.get_options()
+
+        if self._on_save_callback is not None:
+            self._on_save_callback(options)
+
     def _load(self):
         connector = self._harness.connectors[self._connector_name]
         self._name_entry.insert(0, f'{connector.name}')
@@ -164,31 +275,22 @@ class AddConnectorFrame(BaseFrame):
         self._pins_frame.load(connector.pinlabels, connector.pinout)
 
     def _save(self):
-        name = self._name_entry.get().strip()
-        manuf = self._manuf_entry.get().strip()
-        mpn = self._mpn_entry.get().strip()
-        ipm = self._ipm_entry.get().strip()
-        type = self._type_entry.get().strip()
-        subtype = self._subtype_entry.get().strip()
-
-        kwargs = {}
-        if manuf:
-            kwargs['manufacturer'] = manuf
-        if mpn:
-            kwargs['manufacturer_part_number'] = mpn
-        if ipm:
-            kwargs['internal_part_number'] = ipm
-        if type:
-            kwargs['type'] = type
-        if subtype:
-            kwargs['subtype'] = subtype
-
         self._pins_frame.update_all()
-        kwargs['pinlabels'] = self._pins_frame.pin_numbers
-        kwargs['pincount'] = len(self._pins_frame.pin_numbers)
+
+        logic = AddConnectorDialogLogic(
+            name=self._name_entry.get().strip(),
+            manuf=self._manuf_entry.get().strip(),
+            mpn=self._mpn_entry.get().strip(),
+            ipm=self._ipm_entry.get().strip(),
+            type=self._type_entry.get().strip(),
+            subtype=self._subtype_entry.get().strip(),
+            pin_numbers=self._pins_frame.pin_numbers,
+            pinout=self._pins_frame.pinout
+        )
 
         try:
-            self._harness.add_connector(name, **kwargs)
+            kwargs = logic.get_kwargs()
+            self._harness.add_connector(logic._name, **kwargs)
         except Exception as e:
             showerror('Invalid Input', f'{e}')
             return
@@ -426,48 +528,24 @@ class AddCableFrame(BaseFrame):
         self._gauge_cb['values'] = gauge_list
 
     def _save(self):
-        name = self._name_entry.get().strip()
-        manuf = self._manuf_entry.get().strip()
-        mpn = self._mpn_entry.get().strip()
-        ipm = self._ipm_entry.get().strip()
-        type = self._type_entry.get().strip()
-        gauge = self._gauge_cb.get().strip()
-        gauge_unit = self._gauge_unit_cb.get().strip()
-        length = self._length_entry.get().strip()
-        shield = self._shield_var.get()
-
-        kwargs = {}
-        if manuf:
-            kwargs['manufacturer'] = manuf
-        if mpn:
-            kwargs['manufacturer_part_number'] = mpn
-        if ipm:
-            kwargs['internal_part_number'] = ipm
-        if type:
-            kwargs['type'] = type
-        if gauge != '':
-            try:
-                kwargs['gauge'] = int(gauge)
-            except ValueError:
-                kwargs['gauge'] = float(gauge)
-            except Exception:
-                pass
-        if gauge_unit:
-            kwargs['gauge_unit'] = gauge_unit
-        if length:
-            try:
-                kwargs['length'] = float(length)
-            except ValueError as e:
-                showerror('Invalid Input', e)
-                return
-
-        kwargs['shield'] = shield
-
         self._wires_frame.update_all()
-        kwargs['colors'] = self._wires_frame.colors
+
+        logic = AddCableDialogLogic(
+            name=self._name_entry.get().strip(),
+            manuf=self._manuf_entry.get().strip(),
+            mpn=self._mpn_entry.get().strip(),
+            ipm=self._ipm_entry.get().strip(),
+            type=self._type_entry.get().strip(),
+            gauge=self._gauge_cb.get().strip(),
+            gauge_unit=self._gauge_unit_cb.get().strip(),
+            length=self._length_entry.get().strip(),
+            shield=self._shield_var.get(),
+            colors=self._wires_frame.colors
+        )
 
         try:
-            self._harness.add_cable(name, **kwargs)
+            kwargs = logic.get_kwargs()
+            self._harness.add_cable(logic._name, **kwargs)
         except Exception as e:
             showerror('Invalid Input', f'{e}')
             return
@@ -668,30 +746,21 @@ class AddConnectionFrame(BaseFrame):
         self._through_cable_pin['values'] = wire_numbers
 
     def _save(self):
-        data = {}
-        data['from_name'] = self._from_connector_cb.get()
-        data['via_name'] = self._through_cable_cb.get()
-        data['to_name'] = self._to_connector_cb.get()
+        logic = AddConnectionDialogLogic(
+            from_name=self._from_connector_cb.get(),
+            from_pin=self._from_conn_pin_cb.get(),
+            via_name=self._through_cable_cb.get(),
+            via_wire=self._through_cable_pin.get(),
+            to_name=self._to_connector_cb.get(),
+            to_pin=self._to_conn_pin_cb.get()
+        )
+        data = logic.get_data()
 
         try:
-            data['from_pin'] = int(self._from_conn_pin_cb.get())
-        except ValueError:
-            data['from_pin'] = self._from_conn_pin_cb.get()
-
-        try:
-            data['via_pin'] = int(self._through_cable_pin.get())
-        except ValueError:
-            data['via_pin'] = self._through_cable_pin.get()
-
-        try:
-            data['to_pin'] = int(self._to_conn_pin_cb.get())
-        except ValueError:
-            data['to_pin'] = self._to_conn_pin_cb.get()
-
-        print('harness data: ', data)
-
-        # add connections
-        self._harness.connect(**data)
+            self._harness.connect(**data)
+        except Exception as e:
+            showerror('Invalid Input', f'{e}')
+            return
 
         if self._on_save_callback is not None:
             self._on_save_callback()

@@ -2,12 +2,10 @@ import logging
 import tkinter as tk
 from tkinter.messagebox import showerror
 import tkinter.ttk as ttk
-import webbrowser
 
 from wireviz.Harness import Harness
-
 from wireviz_gui._base import BaseFrame
-from wireviz_gui.mating_dialog_logic import AddMateDialogLogic
+from wireviz_gui.dialog_logic import AddMateDialogLogic
 
 
 class AddMateDialog(BaseFrame):

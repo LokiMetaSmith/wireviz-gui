@@ -9,12 +9,13 @@ class Menu(BaseMenu):
                  export_all: callable,
                  refresh: callable,
                  settings: callable,
+                 metadata: callable,
                  about: callable,
                  loglevel=logging.INFO, **kwargs):
         super().__init__(parent=parent, loglevel=loglevel, **kwargs)
 
         self.add_cascade(label='File', menu=FileMenu(self._parent, export_all=export_all))
-        self.add_cascade(label='Edit', menu=EditMenu(self._parent, refresh=refresh, settings=settings))
+        self.add_cascade(label='Edit', menu=EditMenu(self._parent, refresh=refresh, settings=settings, metadata=metadata))
         self.add_cascade(label='Help', menu=HelpMenu(self._parent, about=about))
 
 
@@ -36,6 +37,7 @@ class EditMenu(BaseMenu):
     def __init__(self, parent,
                  refresh: callable,
                  settings: callable,
+                 metadata: callable,
                  loglevel=logging.INFO, **kwargs):
         super().__init__(parent=parent, loglevel=loglevel, **kwargs)
 
@@ -48,6 +50,7 @@ class EditMenu(BaseMenu):
 
         self.add_separator()
         self.add_command(label='Settings', command=settings)
+        self.add_command(label='Metadata', command=metadata)
 
 
 class HelpMenu(BaseMenu):
