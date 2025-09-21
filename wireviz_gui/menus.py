@@ -8,25 +8,26 @@ class Menu(BaseMenu):
     def __init__(self, parent,
                  export_all: callable,
                  refresh: callable,
-                 settings: callable,
-                 metadata: callable,
+                 color_schemes: callable,
                  about: callable,
                  loglevel=logging.INFO, **kwargs):
         super().__init__(parent=parent, loglevel=loglevel, **kwargs)
 
-        self.add_cascade(label='File', menu=FileMenu(self._parent, export_all=export_all))
-        self.add_cascade(label='Edit', menu=EditMenu(self._parent, refresh=refresh, settings=settings, metadata=metadata))
+        self.add_cascade(label='File', menu=FileMenu(self._parent, export_all=export_all, refresh=refresh))
+        self.add_cascade(label='Edit', menu=EditMenu(self._parent, color_schemes=color_schemes))
         self.add_cascade(label='Help', menu=HelpMenu(self._parent, about=about))
 
 
 class FileMenu(BaseMenu):
     def __init__(self, parent,
                  export_all: callable,
+                 refresh: callable,
                  loglevel=logging.INFO, **kwargs):
         super().__init__(parent=parent, loglevel=loglevel, **kwargs)
 
         command_lookup = {
             'Export All':   lambda: export_all(),
+            'Refresh (CTRL+L)':      lambda: refresh(),
         }
 
         for label, command in command_lookup.items():
@@ -35,22 +36,11 @@ class FileMenu(BaseMenu):
 
 class EditMenu(BaseMenu):
     def __init__(self, parent,
-                 refresh: callable,
-                 settings: callable,
-                 metadata: callable,
+                 color_schemes: callable,
                  loglevel=logging.INFO, **kwargs):
         super().__init__(parent=parent, loglevel=loglevel, **kwargs)
 
-        command_lookup = {
-            'Refresh (CTRL+L)':      lambda: refresh(),
-        }
-
-        for label, command in command_lookup.items():
-            self.add_command(label=label, command=command)
-
-        self.add_separator()
-        self.add_command(label='Settings', command=settings)
-        self.add_command(label='Metadata', command=metadata)
+        self.add_command(label='Color Schemes', command=color_schemes)
 
 
 class HelpMenu(BaseMenu):
