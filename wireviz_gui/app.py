@@ -20,33 +20,6 @@ from wireviz_gui.images import *
 from wireviz_gui.menus import Menu
 
 
-def _generate_homebox_csv_content(bom):
-    import csv
-    from io import StringIO
-
-    output = StringIO()
-    writer = csv.writer(output)
-
-    header = ['name', 'label', 'description', 'location', 'quantity', 'price', 'asset_code', 'serial_number', 'notes']
-    writer.writerow(header)
-
-    for item in bom:
-        row_values = [
-            item.get('mpn', ''),  # name
-            item.get('manufacturer', ''),  # label
-            item.get('description', ''),  # description
-            '',  # location
-            item.get('qty', ''),  # quantity
-            '',  # price
-            item.get('pn', ''),  # asset_code
-            '',  # serial_number
-            f"Designators: {', '.join(item.get('designators', []))}, Supplier: {item.get('supplier', '')}, SPN: {item.get('spn', '')}" # notes
-        ]
-        writer.writerow(row_values)
-
-    return output.getvalue()
-
-
 class Application(tk.Tk):
     def __init__(self, loglevel=logging.INFO, **kwargs):
         self._logger = logging.getLogger(self.__class__.__name__)
@@ -68,29 +41,10 @@ class Application(tk.Tk):
         self._io_frame.grid(row=r, column=0, sticky='ew')
 
         self._menu = Menu(self, export_all=self._io_frame.export_all,
-                          export_homebox=self.export_homebox_csv,
                           refresh=self._io_frame.parse_text, about=self._about)
         self.config(menu=self._menu)
 
         self.mainloop()
-
-    def export_homebox_csv(self):
-        self._io_frame.parse_text()
-
-        # if the harness object is empty, do not export
-        if not self._io_frame._harness.connectors and not self._io_frame._harness.cables:
-            showerror('Export Error', 'Harness is empty or contains invalid YAML, cannot export BOM.')
-            return
-
-        file_name = asksaveasfilename(defaultextension=".csv", filetypes=[("CSV files", "*.csv")])
-        if not file_name:
-            return
-
-        bom = self._io_frame._harness.bom()
-        csv_content = _generate_homebox_csv_content(bom)
-
-        with open(file_name, 'w', newline='') as f:
-            f.write(csv_content)
 
     def _about(self):
         top = ToplevelBase(self)
