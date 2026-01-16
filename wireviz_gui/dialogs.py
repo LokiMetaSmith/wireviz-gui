@@ -449,9 +449,10 @@ class AddCableFrame(BaseFrame):
             try:
                 kwargs['gauge'] = int(gauge)
             except ValueError:
-                kwargs['gauge'] = float(gauge)
-            except Exception:
-                pass
+                try:
+                    kwargs['gauge'] = float(gauge)
+                except ValueError:
+                    kwargs['gauge'] = gauge
         if gauge_unit:
             kwargs['gauge_unit'] = gauge_unit
         if length:
