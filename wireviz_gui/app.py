@@ -10,6 +10,7 @@ from PIL import ImageTk
 from tk_tools import ToolTip
 from wireviz.wireviz import Harness, parse
 from wireviz.DataClasses import Connector, Cable, Metadata, Options, Tweak
+import yaml
 from yaml import YAMLError
 
 from wireviz_gui._base import BaseFrame, ToplevelBase
@@ -157,6 +158,59 @@ class InputOutputFrame(BaseFrame):
         AddMateDialog(top, harness=self._harness, on_save_callback=on_save)\
             .grid()
 
+    def _prepare_yaml_data(self, yaml_input):
+        """
+        Parses the YAML string and applies fixes:
+        1. Auto-corrects flat list connections [Str, Int, Str, Int] -> [{Str: Int}, {Str: Int}]
+        2. Injects default POS and NEG cables if missing.
+        """
+        try:
+            yaml_data = yaml.safe_load(yaml_input) or {}
+        except YAMLError:
+            # If valid YAML cannot be parsed, return original input to let wireviz (or caller) handle it
+            # or re-raise to be caught by caller for line highlighting
+            raise
+
+        if not isinstance(yaml_data, dict):
+            return yaml_data
+
+        # 1. Fix connections syntax: [Comp, Pin, Comp, Pin] -> [{Comp: Pin}, {Comp: Pin}]
+        if 'connections' in yaml_data and isinstance(yaml_data['connections'], list):
+            for i, conn_list in enumerate(yaml_data['connections']):
+                if isinstance(conn_list, list):
+                    # Check if list matches pattern [Str, Int, Str, Int, ...]
+                    is_flat_list = False
+                    if len(conn_list) >= 4 and len(conn_list) % 2 == 0:
+                        # minimal check: alternating types
+                        # actually, just check if ANY element is an int, which causes the crash
+                        if any(isinstance(item, int) for item in conn_list):
+                            is_flat_list = True
+
+                    if is_flat_list:
+                        new_list = []
+                        # Process in pairs
+                        for j in range(0, len(conn_list), 2):
+                            comp = conn_list[j]
+                            pin = conn_list[j+1]
+                            if isinstance(comp, str) and isinstance(pin, int):
+                                new_list.append({comp: pin})
+                            else:
+                                # If pattern breaks, keep original items (might fail later but avoids data loss)
+                                new_list.append(comp)
+                                new_list.append(pin)
+                        yaml_data['connections'][i] = new_list
+
+        # 2. Inject default POS/NEG cables
+        if 'cables' not in yaml_data:
+            yaml_data['cables'] = {}
+
+        if 'POS' not in yaml_data['cables']:
+            yaml_data['cables']['POS'] = {'wirecount': 1, 'colors': ['RD'], 'show_equiv': True}
+        if 'NEG' not in yaml_data['cables']:
+            yaml_data['cables']['NEG'] = {'wirecount': 1, 'colors': ['BK'], 'show_equiv': True}
+
+        return yaml_data
+
     def export_all(self):
         file_name = asksaveasfilename()
         if file_name is None or file_name.strip() == '':
@@ -167,8 +221,11 @@ class InputOutputFrame(BaseFrame):
 
         if yaml_input.strip() != '':
             try:
+                # Pre-process data to fix common syntax errors and inject defaults
+                yaml_data = self._prepare_yaml_data(yaml_input)
+
                 parse(
-                    inp=yaml_input,
+                    inp=yaml_data,
                     output_dir=path.parent,
                     output_name=path.stem,
                     output_formats=('png', 'svg', 'html'),
@@ -189,8 +246,11 @@ class InputOutputFrame(BaseFrame):
         yaml_input = self._text_entry_frame.get()
         if yaml_input.strip() != '':
             try:
+                # Pre-process data to fix common syntax errors and inject defaults
+                yaml_data = self._prepare_yaml_data(yaml_input)
+
                 png_data, new_harness = parse(
-                    inp=yaml_input,
+                    inp=yaml_data,
                     return_types=('png', 'harness')
                 )
                 self._harness.connectors = new_harness.connectors
