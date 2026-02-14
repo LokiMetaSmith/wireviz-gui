@@ -829,3 +829,80 @@ class AddConnectionFrame(BaseFrame):
 
         if self._on_save_callback is not None:
             self._on_save_callback(connection_list)
+
+
+class EditMetadataDialog(BaseFrame):
+    def __init__(
+        self,
+        parent,
+        metadata: dict = None,
+        on_save_callback: callable = None,
+        loglevel=logging.INFO,
+    ):
+        super().__init__(parent, loglevel=loglevel)
+
+        self._metadata = metadata or {}
+        self._on_save_callback = on_save_callback
+        self._entries = []
+
+        r = 0
+        tk.Label(self, text="Edit Metadata", **self._heading).grid(
+            row=r, column=0, columnspan=2, sticky="ew"
+        )
+
+        r += 1
+        self._entries_frame = tk.Frame(self)
+        self._entries_frame.grid(row=r, column=0, columnspan=2, sticky="ew")
+
+        r += 1
+        tk.Button(self, text="Add Entry", command=self._add_entry, **self._normal).grid(
+            row=r, column=0, sticky="ew"
+        )
+        tk.Button(self, text="Save Metadata", command=self._save, **self._normal).grid(
+            row=r, column=1, sticky="ew"
+        )
+
+        self._load()
+
+    def _load(self):
+        for key, value in self._metadata.items():
+            self._add_entry(key, value)
+
+        # If empty, add one empty row
+        if not self._metadata:
+            self._add_entry()
+
+    def _add_entry(self, key="", value=""):
+        # Frame for the row to handle layout better
+        frame = tk.Frame(self._entries_frame)
+        frame.pack(fill="x", expand=True)
+
+        key_entry = tk.Entry(frame)
+        key_entry.pack(side="left", expand=True, fill="x")
+        key_entry.insert(0, str(key))
+
+        tk.Label(frame, text=":", **self._normal).pack(side="left")
+
+        val_entry = tk.Entry(frame)
+        val_entry.pack(side="left", expand=True, fill="x")
+        val_entry.insert(0, str(value))
+
+        del_btn = tk.Button(frame, text="X", command=lambda f=frame: self._delete_entry(f), **self._red)
+        del_btn.pack(side="left")
+
+        self._entries.append({"frame": frame, "key": key_entry, "value": val_entry})
+
+    def _delete_entry(self, frame):
+        frame.destroy()
+        self._entries = [e for e in self._entries if e["frame"] != frame]
+
+    def _save(self):
+        metadata = {}
+        for entry in self._entries:
+            key = entry["key"].get().strip()
+            value = entry["value"].get().strip()
+            if key:
+                metadata[key] = value
+
+        if self._on_save_callback:
+            self._on_save_callback(metadata)

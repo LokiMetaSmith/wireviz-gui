@@ -30,7 +30,7 @@ environment variables)!!!  I had to perform a restart after this step.
 # Executable
 
 There is an executable available!  I built the executable based on the current-day 
-`dev` branch of [wireviz](https://github.com/formatc1702/WireViz), but it works
+`dev` branch of [wireviz](https://github.com/wireviz/WireViz), but it works
 well enough.  Go to the [releases](https://github.com/slightlynybbled/wireviz-gui/releases/tag/v0.1.0),
 download the `wireviz-gui_vX.X.X_YYY.exe` and execute.  This makes for a nice "try/see"
 environment.

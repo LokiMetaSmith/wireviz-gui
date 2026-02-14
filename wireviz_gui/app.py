@@ -21,6 +21,7 @@ from wireviz_gui.dialogs import (
     AddCableFrame,
     AddConnectionFrame,
     AddConnectorFrame,
+    EditMetadataDialog,
 )
 from wireviz_gui.mating_dialog import AddMateDialog
 from wireviz_gui.images import *
@@ -168,6 +169,9 @@ class Application(tk.Tk):
             load_example=self.add_tab,
             close_tab=self.close_current_tab,
             examples=EXAMPLES,
+            edit_metadata=lambda: self.get_active_frame().edit_metadata()
+            if self.get_active_frame()
+            else None,
         )
         self.config(menu=self._menu)
 
@@ -332,6 +336,25 @@ class InputOutputFrame(BaseFrame):
             showerror("YAML Error", f"Error processing existing YAML: {e}")
             return
 
+    def _replace_yaml_section(self, section, new_data):
+        current_text = self._text_entry_frame.get()
+        try:
+            data = yaml.safe_load(current_text) or {}
+
+            # Directly replace or set the section
+            data[section] = new_data
+
+            # Clear the text entry and insert the updated YAML
+            self._text_entry_frame.clear()
+            self._text_entry_frame.append(
+                yaml.dump(data, default_flow_style=False, sort_keys=False)
+            )
+            self.parse_text()
+
+        except yaml.YAMLError as e:
+            showerror("YAML Error", f"Error processing existing YAML: {e}")
+            return
+
     def add_connector(self):
         top = ToplevelBase(self)
         top.title("Add Connector")
@@ -371,6 +394,18 @@ class InputOutputFrame(BaseFrame):
             self._update_yaml_section("connections", mate_data)
 
         AddMateDialog(top, harness=self._harness, on_save_callback=on_save).grid()
+
+    def edit_metadata(self):
+        top = ToplevelBase(self)
+        top.title("Edit Metadata")
+
+        def on_save(metadata):
+            top.destroy()
+            self._replace_yaml_section("metadata", metadata)
+
+        EditMetadataDialog(
+            top, metadata=self._harness.metadata, on_save_callback=on_save
+        ).grid()
 
     def open_file(self):
         file_name = askopenfilename(
@@ -525,6 +560,8 @@ class InputOutputFrame(BaseFrame):
                 self._harness.cables = new_harness.cables
                 self._harness.mates = new_harness.mates
                 self._harness.additional_bom_items = new_harness.additional_bom_items
+                self._harness.metadata = new_harness.metadata
+                self._harness.options = new_harness.options
 
                 self.refresh_view(png_data)
             except YAMLError as e:
