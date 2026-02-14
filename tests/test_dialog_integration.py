@@ -4,7 +4,7 @@ import yaml
 from wireviz.wireviz import Harness
 from wireviz.DataClasses import Metadata, Options, Tweak
 from wireviz_gui.app import Application, InputOutputFrame
-from wireviz_gui.dialogs import AddConnectorFrame, AddCableFrame, AddConnectionFrame
+from wireviz_gui.dialogs import AddConnectorFrame, AddCableFrame, AddConnectionFrame, EditMetadataDialog
 from wireviz_gui.mating_dialog import AddMateDialog
 
 
@@ -156,6 +156,43 @@ class TestDialogIntegration(unittest.TestCase):
             data = cb.call_args[0][0]
             expected = [{"X1": 1}, {"W1": 1}, {"X2": 1}]
             self.assertEqual(data, expected)
+
+    def test_metadata_dialog(self):
+        cb = MagicMock()
+        # --- Metadata ---
+        with (
+            patch("wireviz_gui.dialogs.tk.Label"),
+            patch(
+                "wireviz_gui.dialogs.tk.Entry",
+                side_effect=lambda *args, **kwargs: MagicMock(),
+            ) as MockEntry,
+            patch("wireviz_gui.dialogs.tk.Button"),
+            patch("wireviz_gui.dialogs.tk.Frame"),
+        ):
+            dialog = EditMetadataDialog(MagicMock(), metadata={"title": "Test"}, on_save_callback=cb)
+
+            # The dialog loads existing metadata into entries
+            # We want to verify that _entries list is populated
+            self.assertEqual(len(dialog._entries), 1)
+
+            # Simulate adding another entry
+            dialog._add_entry("author", "Me")
+            self.assertEqual(len(dialog._entries), 2)
+
+            # Mock getting values from entries
+            # dialog._entries[0]['key'] is first mocked Entry
+            dialog._entries[0]['key'].get.return_value = "title"
+            dialog._entries[0]['value'].get.return_value = "New Title"
+
+            dialog._entries[1]['key'].get.return_value = "author"
+            dialog._entries[1]['value'].get.return_value = "Me"
+
+            dialog._save()
+
+            cb.assert_called_once()
+            data = cb.call_args[0][0]
+            self.assertEqual(data["title"], "New Title")
+            self.assertEqual(data["author"], "Me")
 
 
 if __name__ == "__main__":

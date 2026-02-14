@@ -20,6 +20,7 @@ class Menu(BaseMenu):
         load_example: callable = None,
         close_tab: callable = None,
         examples: dict = None,
+        edit_metadata: callable = None,
         loglevel=logging.INFO,
         **kwargs,
     ):
@@ -42,6 +43,14 @@ class Menu(BaseMenu):
                 examples=examples,
             ),
         )
+        if edit_metadata:
+            self.add_cascade(
+                label="Edit",
+                menu=EditMenu(
+                    self._parent,
+                    edit_metadata=edit_metadata,
+                ),
+            )
         self.add_cascade(label="Help", menu=HelpMenu(self._parent, about=about))
 
 
@@ -98,6 +107,19 @@ class FileMenu(BaseMenu):
         if close_tab:
             self.add_separator()
             self.add_command(label="Close Tab (CTRL+W)", command=lambda: close_tab())
+
+
+class EditMenu(BaseMenu):
+    def __init__(
+        self,
+        parent,
+        edit_metadata: callable,
+        loglevel=logging.INFO,
+        **kwargs,
+    ):
+        super().__init__(parent=parent, loglevel=loglevel, **kwargs)
+
+        self.add_command(label="Metadata", command=lambda: edit_metadata())
 
 
 class HelpMenu(BaseMenu):

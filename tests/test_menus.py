@@ -130,5 +130,46 @@ class TestMenuStructure(unittest.TestCase):
             labels = [kwargs.get('label') for method, kwargs in file_menu.calls if method == 'add_command']
             self.assertIn("New (CTRL+N)", labels)
 
+    def test_edit_menu_structure(self):
+        with patch("sys.modules", {**sys.modules, "tkinter": FakeTkModule}):
+            from wireviz_gui.menus import Menu
+
+            parent = MagicMock()
+            callbacks = {
+                'open_file': MagicMock(),
+                'save': MagicMock(),
+                'save_as': MagicMock(),
+                'save_graph_image': MagicMock(),
+                'export_all': MagicMock(),
+                'refresh': MagicMock(),
+                'reload_file': MagicMock(),
+                'about': MagicMock(),
+                'new_file': MagicMock(),
+                'load_example': MagicMock(),
+                'close_tab': MagicMock(),
+            }
+
+            # Test without edit_metadata
+            main_menu = Menu(parent, **callbacks)
+            labels = [kwargs.get('label') for method, kwargs in main_menu.calls if method == 'add_cascade']
+            self.assertNotIn("Edit", labels)
+
+            # Test with edit_metadata
+            callbacks['edit_metadata'] = MagicMock()
+            main_menu = Menu(parent, **callbacks)
+            labels = [kwargs.get('label') for method, kwargs in main_menu.calls if method == 'add_cascade']
+            self.assertIn("Edit", labels)
+
+            # Find Edit menu
+            edit_menu = None
+            for method, kwargs in main_menu.calls:
+                 if method == 'add_cascade' and kwargs.get('label') == "Edit":
+                     edit_menu = kwargs.get('menu')
+                     break
+
+            self.assertIsNotNone(edit_menu)
+            edit_labels = [kwargs.get('label') for method, kwargs in edit_menu.calls if method == 'add_command']
+            self.assertIn("Metadata", edit_labels)
+
 if __name__ == '__main__':
     unittest.main()
