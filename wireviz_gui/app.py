@@ -35,80 +35,82 @@ def preprocess_yaml_data(data):
     - Moves 'label' from cables to 'notes' (compatibility fix).
     - Resolves 'Connector.Pin' syntax in connections to {Connector: Pin} (syntax fix).
     - Flattens nested dictionary connections (star topology).
+    - Handles multiple key-value pairs in connection dictionaries.
     """
     if not isinstance(data, dict):
         return data
 
     # Fix: Handle Cable labels by moving them to notes
-    if 'cables' in data and isinstance(data['cables'], dict):
-        for cable_name, cable_data in data['cables'].items():
-            if isinstance(cable_data, dict) and 'label' in cable_data:
-                label = cable_data.pop('label')
-                if 'notes' in cable_data:
-                     cable_data['notes'] = str(cable_data['notes']) + "\n" + str(label)
+    if "cables" in data and isinstance(data["cables"], dict):
+        for cable_name, cable_data in data["cables"].items():
+            if isinstance(cable_data, dict) and "label" in cable_data:
+                label = cable_data.pop("label")
+                if "notes" in cable_data and cable_data["notes"] is not None:
+                    cable_data["notes"] = str(cable_data["notes"]) + "\n" + str(label)
                 else:
-                     cable_data['notes'] = str(label)
+                    cable_data["notes"] = str(label)
 
-    if 'connections' not in data:
+    if "connections" not in data or data["connections"] is None:
         return data
 
-    connections = data['connections']
+    connections = data["connections"]
     if not isinstance(connections, list):
         return data
 
     # Get known connectors (designators) to support Connector.Pin syntax
     known_connectors = set()
-    if 'connectors' in data and isinstance(data['connectors'], dict):
-        known_connectors = set(data['connectors'].keys())
+    if "connectors" in data and isinstance(data["connectors"], dict):
+        known_connectors = set(data["connectors"].keys())
+
+    # Helper to parse node string or dict into wireviz compatible format
+    def parse_node(node):
+        # Fix: Handle Connector.Pin syntax if string
+        if isinstance(node, str) and "." in node:
+            parts = node.split(".", 1)
+            designator = parts[0]
+            pin = parts[1]
+            if designator in known_connectors:
+                # It is Connector.Pin, convert to {Designator: Pin}
+                # Convert pin to int if it is all digits
+                if pin.isdigit():
+                    return {designator: int(pin)}
+                return {designator: pin}
+        elif isinstance(node, dict):
+            # Parse dict keys/values recursively if needed
+            converted = {}
+            for k, v in node.items():
+                if isinstance(v, str) and v.isdigit():
+                    converted[k] = int(v)
+                else:
+                    converted[k] = v
+            return converted
+        return node
 
     new_connections = []
 
-    # Helper to parse node string into wireviz compatible format
-    def parse_node(node_str):
-        # Fix: Handle Connector.Pin syntax
-        if isinstance(node_str, str) and '.' in node_str:
-            parts = node_str.split('.')
-            if len(parts) == 2:
-                designator = parts[0]
-                pin = parts[1]
-                if designator in known_connectors:
-                    # It is Connector.Pin, convert to {Designator: Pin}
-                    return {designator: pin}
-        return node_str
-
     for conn in connections:
         if isinstance(conn, dict):
-            keys = list(conn.keys())
-            if len(keys) == 0:
-                continue
-
-            start_node = keys[0]
-            value = conn[start_node]
-
-            if isinstance(value, list):
-                for item in value:
-                    p = [parse_node(start_node)]
-                    if isinstance(item, dict):
-                        if len(item) > 0:
-                            k = list(item.keys())[0]
-                            v = list(item.values())[0]
-                            p.append(parse_node(v))
-                            p.append(parse_node(k))
-                    else:
-                        p.append(parse_node(item))
+            for start_node, value in conn.items():
+                if isinstance(value, list):
+                    for item in value:
+                        p = [parse_node(start_node)]
+                        if isinstance(item, dict):
+                            for k, v in item.items():
+                                p.append(parse_node(v))
+                                p.append(parse_node(k))
+                        else:
+                            p.append(parse_node(item))
+                        new_connections.append(p)
+                else:
+                    p = [parse_node(start_node), parse_node(value)]
                     new_connections.append(p)
-            else:
-                p = [parse_node(start_node), parse_node(value)]
-                new_connections.append(p)
+        elif isinstance(conn, list):
+            new_conn = [parse_node(item) for item in conn]
+            new_connections.append(new_conn)
         else:
-            # If it's a list, we should also check for Connector.Pin syntax in its items
-            if isinstance(conn, list):
-                new_conn = [parse_node(item) for item in conn]
-                new_connections.append(new_conn)
-            else:
-                new_connections.append(conn)
+            new_connections.append(conn)
 
-    data['connections'] = new_connections
+    data["connections"] = new_connections
     return data
 
 # Alias for backward compatibility if needed, though mostly internal
@@ -116,7 +118,7 @@ normalize_connections = preprocess_yaml_data
 
 
 class Application(tk.Tk):
-    def __init__(self, loglevel=logging.INFO, **kwargs):
+    def __init__(self, initial_file=None, loglevel=logging.INFO, **kwargs):
         self._logger = logging.getLogger(self.__class__.__name__)
         self._logger.setLevel(loglevel)
 
@@ -139,7 +141,17 @@ class Application(tk.Tk):
         self.grid_rowconfigure(r, weight=1)
         self.grid_columnconfigure(0, weight=1)
 
-        self.add_tab()
+        if initial_file:
+            path = Path(initial_file)
+            content = None
+            if path.exists() and path.is_file():
+                try:
+                    content = path.read_text(encoding="utf-8")
+                except Exception as e:
+                    self._logger.error(f"Error reading initial file {path}: {e}")
+            self.add_tab(title=path.name, content=content, filepath=str(path.resolve()))
+        else:
+            self.add_tab()
 
         self._menu = Menu(
             self,
@@ -272,7 +284,10 @@ class InputOutputFrame(BaseFrame):
 
         r += 1
         self._structure_view_frame = StructureViewFrame(
-            self, on_update_callback=self.refresh_view, harness=self._harness
+            self,
+            on_update_callback=self.refresh_view,
+            on_edit_connector_callback=self.edit_connector,
+            harness=self._harness,
         )
         self._structure_view_frame.grid(row=r, column=0, sticky="ew")
 
@@ -364,6 +379,40 @@ class InputOutputFrame(BaseFrame):
             self._update_yaml_section("connectors", connector_data)
 
         AddConnectorFrame(top, harness=self._harness, on_save_callback=on_save).grid()
+
+    def edit_connector(self, connector_name):
+        top = ToplevelBase(self)
+        top.title("Edit Connector")
+
+        def on_save(connector_data):
+            top.destroy()
+            if not isinstance(connector_data, dict):
+                return
+            # If deleted, connector_data is {name: None}
+            val = connector_data.get(connector_name)
+            if val is None:
+                # Remove connector from YAML
+                current_text = self._text_entry_frame.get()
+                try:
+                    data = yaml.safe_load(current_text) or {}
+                    if "connectors" in data and isinstance(data["connectors"], dict):
+                        data["connectors"].pop(connector_name, None)
+                        self._text_entry_frame.clear()
+                        self._text_entry_frame.append(
+                            yaml.dump(data, default_flow_style=False, sort_keys=False)
+                        )
+                        self.parse_text()
+                except Exception as e:
+                    showerror("YAML Error", f"Error updating YAML: {e}")
+            else:
+                self._update_yaml_section("connectors", connector_data)
+
+        AddConnectorFrame(
+            top,
+            harness=self._harness,
+            connector_name=connector_name,
+            on_save_callback=on_save,
+        ).grid()
 
     def add_cable(self):
         top = ToplevelBase(self)
@@ -602,53 +651,20 @@ class StructureViewFrame(BaseFrame):
         parent,
         harness: Harness,
         on_update_callback: callable = None,
+        on_edit_connector_callback: callable = None,
         loglevel=logging.INFO,
     ):
         super().__init__(parent=parent, loglevel=loglevel)
 
         self._harness = harness
         self._on_update_callback = on_update_callback
+        self._on_edit_connector_callback = on_edit_connector_callback
 
         self.refresh(False)
 
-    def _load_connector_dialog(self, connector: Connector):
-        top = ToplevelBase(self)
-        top.title("Add Connector")
-
-        def on_save(connector_data):
-            top.destroy()
-            # self.refresh(True)
-            # The structure view refresh should happen when the main app parses text again.
-            # But here we need to callback to the main app to update YAML.
-            # This is tricky because StructureViewFrame doesn't have reference to Application methods directly.
-            # However, the user flow is: Click structure item -> Edit.
-            # But the current Dialogs are "AddConnectorFrame". They don't support Editing well yet
-            # because they don't load data back fully if we just pass a string.
-            # And our refactor changed `_save` to return a dict, not modify harness.
-            # If we reuse AddConnectorFrame for editing, we need to handle the save callback differently.
-
-            # The prompt asked for "Add gui-based harness building". Editing existing ones is a bonus/next step.
-            # For now, I will disable the "Edit" click or leave it but it won't save correctly unless I fix it.
-            # The current StructureViewFrame implementation passes `on_save_callback` which calls `self.refresh(True)`.
-            # `AddConnectorFrame` now expects `on_save_callback` to take an argument `connector_data`.
-            # `self.refresh` does not take that.
-            # So the click listener in StructureViewFrame will break if I don't update it.
-            pass
-
-        # We need to update StructureViewFrame to handle the new callback signature if we want to support clicking existing items.
-        # However, editing is complicated because we need to find the item in the YAML and replace it.
-        # For now, I'll update the callback to accept the arg but do nothing, effectively making it read-only for now,
-        # or just print it.
-        def dummy_save(data):
-            print("Edit saved (not implemented yet):", data)
-            top.destroy()
-
-        AddConnectorFrame(
-            top,
-            harness=self._harness,
-            connector_name=str(connector),
-            on_save_callback=dummy_save,
-        ).grid()
+    def _load_connector_dialog(self, connector: str):
+        if self._on_edit_connector_callback is not None:
+            self._on_edit_connector_callback(str(connector))
 
     def refresh(self, execute_callback: bool = False):
         for child in self.winfo_children():

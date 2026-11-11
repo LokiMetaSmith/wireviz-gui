@@ -157,6 +157,43 @@ class TestDialogIntegration(unittest.TestCase):
             expected = [{"X1": 1}, {"W1": 1}, {"X2": 1}]
             self.assertEqual(data, expected)
 
+    def test_edit_connector_integration(self):
+        # Test editing an existing connector and deleting it via InputOutputFrame
+        with (
+            patch("wireviz_gui.app.InputOutputFrame.grid"),
+            patch("wireviz_gui.app.ButtonFrame"),
+            patch("wireviz_gui.app.StructureViewFrame"),
+            patch("wireviz_gui.app.TextEntryFrame") as MockTextEntry,
+            patch("wireviz_gui.app.HarnessViewFrame"),
+            patch("wireviz_gui.app.AddConnectorFrame") as MockAddConnectorFrame,
+            patch("wireviz_gui.app.ToplevelBase"),
+            patch("wireviz_gui.app.parse") as mock_parse,
+        ):
+            mock_parse.return_value = (b"fake_png", MagicMock())
+            parent = MagicMock()
+            frame = InputOutputFrame(parent)
+            text_entry_instance = MockTextEntry.return_value
+            text_entry_instance.get.return_value = "connectors:\n  X1:\n    type: D-Sub\n"
+
+            # Call edit_connector
+            frame.edit_connector("X1")
+            MockAddConnectorFrame.assert_called_once()
+            on_save_cb = MockAddConnectorFrame.call_args[1]["on_save_callback"]
+
+            # 1. Update connector
+            on_save_cb({"X1": {"type": "Molex"}})
+            text_entry_instance.append.assert_called()
+            args, _ = text_entry_instance.append.call_args
+            parsed = yaml.safe_load(args[0])
+            self.assertEqual(parsed["connectors"]["X1"]["type"], "Molex")
+
+            # 2. Delete connector
+            text_entry_instance.get.return_value = "connectors:\n  X1:\n    type: Molex\n"
+            on_save_cb({"X1": None})
+            args_del, _ = text_entry_instance.append.call_args
+            parsed_del = yaml.safe_load(args_del[0])
+            self.assertNotIn("X1", parsed_del.get("connectors", {}))
+
     def test_metadata_dialog(self):
         cb = MagicMock()
         # --- Metadata ---
