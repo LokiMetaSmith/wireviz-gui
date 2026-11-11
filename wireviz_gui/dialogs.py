@@ -153,39 +153,37 @@ class AddConnectorFrame(BaseFrame):
         if self._connector_name is not None:
             r += 1
             tk.Button(
-                self, text="Delete Connector", command=self._delete, **self._normal
+                self, text="Delete Connector", command=self._delete, **self._red
             ).grid(row=r, column=0, columnspan=2, sticky="ew")
             self._load()
 
     def _delete(self):
-        # self._harness.connectors.pop(self._connector_name)
-        # Deletion logic should be handled by the callback too ideally, but for now we might
-        # need to pass a special signal or just handle additions properly first.
-        # The prompt only asked for adding components to be fixed.
-        # I'll keep this as is for now, but it won't work with the text editor sync strategy
-        # unless we implement a full sync or special delete callback.
-        # Given the scope, I will comment it out or warn.
-        # But actually, deletion is not part of the "Add..." flows.
-        pass
+        if self._connector_name and self._on_save_callback is not None:
+            # Signal deletion by passing {name: None}
+            self._on_save_callback({self._connector_name: None})
 
     def _load(self):
+        if self._connector_name not in self._harness.connectors:
+            return
         connector = self._harness.connectors[self._connector_name]
-        self._name_entry.insert(0, f"{connector.name}")
+        self._name_entry.insert(0, f"{connector.name or self._connector_name}")
         self._name_entry.config(state="disabled")
 
         if connector.manufacturer is not None:
-            self._manuf_entry.insert(0, connector.manufacturer)
+            self._manuf_entry.insert(0, str(connector.manufacturer))
         if connector.mpn is not None:
-            self._mpn_entry.insert(0, connector.mpn)
+            self._mpn_entry.insert(0, str(connector.mpn))
         if connector.pn is not None:
-            self._ipm_entry.insert(0, connector.pn)
+            self._ipm_entry.insert(0, str(connector.pn))
         if connector.type is not None:
-            self._type_entry.insert(0, connector.type)
+            self._type_entry.insert(0, str(connector.type))
         if connector.subtype is not None:
-            self._subtype_entry.insert(0, connector.subtype)
+            self._subtype_entry.insert(0, str(connector.subtype))
 
         # load PinsFrame
-        self._pins_frame.load(connector.pinlabels, connector.pinout)
+        pinlabels = connector.pinlabels if connector.pinlabels is not None else []
+        pinout = connector.pinout if connector.pinout is not None else []
+        self._pins_frame.load(pinlabels, pinout)
 
     def _save(self):
         name = self._name_entry.get().strip()
